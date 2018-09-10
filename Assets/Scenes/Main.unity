@@ -210,7 +210,6 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 512
   hasHit: 
-  vertices: []
   testIndex: 0
 --- !u!4 &345975765
 Transform:

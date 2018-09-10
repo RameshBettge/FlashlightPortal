@@ -18,7 +18,6 @@ public class CircleGenerator : MonoBehaviour
     Vector3[] dir;
 
     RaycastHit[] hits;
-    //Vector3[] hitPoints;
     public bool[] hasHit;
 
     int currentHits;
@@ -31,7 +30,7 @@ public class CircleGenerator : MonoBehaviour
 
     Vector3 testOffset;
 
-    public Vector3[] vertices;
+    Vector3[] vertices;
 
     public int testIndex;
 
@@ -98,7 +97,7 @@ public class CircleGenerator : MonoBehaviour
         {
             if (hasHit[i])
             {
-                vertices[vIndex] = hits[i].point + testOffset;
+                vertices[vIndex] = hits[i].point + testOffset + hits[i].normal * 0.01f ;
                 vIndex++;
             }
         }
