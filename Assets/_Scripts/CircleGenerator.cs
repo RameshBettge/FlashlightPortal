@@ -8,7 +8,7 @@ public class CircleGenerator : MonoBehaviour
     [SerializeField]
     LayerMask mask;
 
-    int rayDensity = 36;
+    int rayDensity = 12;
     float size = 0.2f;
     float range = 15f;
 
@@ -41,6 +41,7 @@ public class CircleGenerator : MonoBehaviour
         circle = transform.GetChild(0);
         filter = circle.GetComponent<MeshFilter>();
         mesh = filter.mesh = new Mesh();
+        circle.parent = null;
 
         increment = 360 / rayDensity;
         radian = increment * Mathf.Deg2Rad;
