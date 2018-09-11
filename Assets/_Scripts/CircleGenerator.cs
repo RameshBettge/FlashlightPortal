@@ -41,7 +41,7 @@ public class CircleGenerator : MonoBehaviour
     public int[] corners = new int[4]; //Top Right, Botton Right, Bottom Left, Top Left
     public bool[] cornerHit = new bool[4];
 
-    public enum Corners { TopRight = 0, BottomRight = 1, BottomLeft = 2, TopLeft = 3 }
+    public enum Corners { RightTop = 0, RightBottom = 1, LeftBottom = 2, LeftTop = 3 }
 
     void Start()
     {
@@ -147,11 +147,8 @@ public class CircleGenerator : MonoBehaviour
         }
         circle.position = middlePos;
 
-        if (!cornerHit[(int)Corners.TopLeft])
-        {
-            vertices[0] = GetTopLeft();
-        }
-
+        CheckCorners();
+     
         //Create triangles
         int triIndex = 0;
         int[] tris = new int[(vertices.Length - 1) * 3];
@@ -173,23 +170,77 @@ public class CircleGenerator : MonoBehaviour
         filter.mesh = mesh;
     }
 
-    private Vector3 GetTopLeft()
+    private void CheckCorners()
     {
-        float furthestUp = 0f;
-        float furthestLeft = 0f;
+        //float highestX = 0f, lowestX = 0f, highestY = 0f, lowestY = 0f;
+
+        //int yDirection = 0;
+        //int xDirection = 0;
+
+        //for (int i = 1; i < vertices.Length; i++)
+        //{
+        //    if (vertices[i].x > highestX)
+        //    {
+        //        highestX = vertices[i].x;
+        //    }
+        //    else if(vertices[i].x < lowestX)
+        //    {
+        //        lowestX = vertices[i].x;
+        //    }
+
+        //    if (vertices[i].y > highestY)
+        //    {
+        //        highestY = vertices[i].y;
+        //    }
+        //    else if (vertices[i].y < lowestY)
+        //    {
+        //        lowestY = vertices[i].y;
+        //    }
+        //}
+
+        //// ifthe end of the wall to the left is nearer than the end of the wall on the right
+        //if (highestX > -lowestX)  {xDirection = -1;}
+        //else { xDirection = 1; }
+
+        //if (highestX > -lowestX) { yDirection = -1; }
+        //else { yDirection = 1; }
+
+        //Only functional for upper corners
+        //if (!cornerHit[(int)Corners.RightTop]/* && yDirection ==1 && xDirection == 1*/)
+        //{
+        //    vertices[0] = GetCornerPos(1, 1);
+        //}
+        //if (!cornerHit[(int)Corners.RightBottom])
+        //{
+        //    vertices[0] = GetCornerPos(1, -1);
+        //}
+        //if (!cornerHit[(int)Corners.LeftBottom])
+        //{
+        //    vertices[0] = GetCornerPos(-1, -1);
+        //}
+        if (!cornerHit[(int)Corners.LeftTop])
+        {
+            vertices[0] = GetCornerPos(-1, 1);
+        }
+    }
+
+    private Vector3 GetCornerPos(int xMultiplicator, int yMultiplicator)
+    {
+        float furthestY = 0f;
+        float furthestX = 0f;
 
         for (int i = 1; i < vertices.Length; i++)
         {
-            if (vertices[i].x < furthestLeft)
+            if (vertices[i].x * xMultiplicator > furthestX)
             {
-                furthestLeft = vertices[i].x;
+                furthestX = vertices[i].x;
             }
-            if (vertices[i].y > furthestUp)
+            if (vertices[i].y /** yMultiplicator*/ > furthestY)
             {
-                furthestUp = vertices[i].y;
+                furthestY = vertices[i].y;
             }
         }
-        Vector3 target = new Vector3(furthestLeft, furthestUp, 0f);
+        Vector3 target = new Vector3(furthestX, furthestY * yMultiplicator, 0f);
         return target;
     }
 
