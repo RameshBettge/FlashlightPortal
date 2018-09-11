@@ -8,7 +8,13 @@ public class CircleGenerator : MonoBehaviour
     [SerializeField]
     LayerMask mask;
 
-    int rayDensity = 20;
+    [Header("Debugging")]
+    [SerializeField]
+    bool displayGizmos = true;
+    [SerializeField]
+    bool displayRays = true;
+
+    int rayDensity = 500;
     float size = 0.3f;
     float range = 15f;
 
@@ -18,11 +24,9 @@ public class CircleGenerator : MonoBehaviour
     Vector3[] dir;
 
     RaycastHit[] hits;
-    public bool[] hasHit;
+    bool[] hasHit;
 
     int currentHits;
-
-    //List<Vector3> hitPoints = new List<Vector3>();
 
     Transform circle;
     MeshFilter filter;
@@ -34,6 +38,10 @@ public class CircleGenerator : MonoBehaviour
 
     Vector3 middlePos;
 
+    public int[] corners = new int[4]; //Top Right, Botton Right, Bottom Left, Top Left
+    public bool[] cornerHit = new bool[4];
+
+    public enum Corners { TopRight = 0, BottomRight = 1, BottomLeft = 2, TopLeft = 3 }
 
     void Start()
     {
@@ -50,6 +58,12 @@ public class CircleGenerator : MonoBehaviour
         hasHit = new bool[rayDensity];
 
 
+        //Get Corners
+        for (int i = 0; i < 4; i++)
+        {
+            corners[i] = (rayDensity / 8) + (rayDensity / 4) * i;
+        }
+
         //Get ray directions
         increment = 360f / rayDensity;
         radian = increment * Mathf.Deg2Rad;
@@ -63,17 +77,15 @@ public class CircleGenerator : MonoBehaviour
     {
         CheckRays();
 
-        if(currentHits > 0)
+        if (currentHits > 0)
         {
-        CreateMesh();
+            CreateMesh();
         }
         else
         {
             filter.mesh = null;
         }
     }
-
-
 
     private void CheckRays()
     {
@@ -84,7 +96,10 @@ public class CircleGenerator : MonoBehaviour
             Vector3 localDir = transform.TransformDirection(dir[i]);
             if (Physics.Raycast(transform.position, localDir * range, out hits[i], mask))
             {
-                Debug.DrawRay(transform.position, localDir * hits[i].distance);
+                if (displayRays)
+                {
+                    Debug.DrawRay(transform.position, localDir * hits[i].distance);
+                }
                 hasHit[i] = true;
                 currentHits++;
             }
@@ -92,7 +107,16 @@ public class CircleGenerator : MonoBehaviour
             {
                 hasHit[i] = false;
             }
+
+            for (int c = 0; c < 4; c++)
+            {
+                if (i == corners[c])
+                {
+                    cornerHit[c] = hasHit[i];
+                }
+            }
         }
+
     }
 
     private void CreateMesh()
@@ -123,6 +147,11 @@ public class CircleGenerator : MonoBehaviour
         }
         circle.position = middlePos;
 
+        if (!cornerHit[(int)Corners.TopLeft])
+        {
+            vertices[0] = GetTopLeft();
+        }
+
         //Create triangles
         int triIndex = 0;
         int[] tris = new int[(vertices.Length - 1) * 3];
@@ -144,6 +173,26 @@ public class CircleGenerator : MonoBehaviour
         filter.mesh = mesh;
     }
 
+    private Vector3 GetTopLeft()
+    {
+        float furthestUp = 0f;
+        float furthestLeft = 0f;
+
+        for (int i = 1; i < vertices.Length; i++)
+        {
+            if (vertices[i].x < furthestLeft)
+            {
+                furthestLeft = vertices[i].x;
+            }
+            if (vertices[i].y > furthestUp)
+            {
+                furthestUp = vertices[i].y;
+            }
+        }
+        Vector3 target = new Vector3(furthestLeft, furthestUp, 0f);
+        return target;
+    }
+
     Vector3 GetMiddlePosition()
     {
         Vector3 pos = Vector3.zero;
@@ -154,13 +203,16 @@ public class CircleGenerator : MonoBehaviour
         {
             pos = hit.point;
 
-            Debug.DrawRay(transform.position, transform.forward * hit.distance, Color.cyan);
+            if (displayRays)
+            {
+                Debug.DrawRay(transform.position, transform.forward * hit.distance, Color.cyan);
+            }
         }
         else
         {
             for (int i = 1; i < vertices.Length; i++)
             {
-               pos += vertices[i];
+                pos += vertices[i];
             }
             pos /= vertices.Length - 1;
         }
@@ -196,26 +248,14 @@ public class CircleGenerator : MonoBehaviour
         //    return midPos;
         //}
 
-        
+
         //return hit.point;
-    }
-
-    private Vector3 GetNewMiddle(Vector3 p)
-    {
-        RaycastHit hit = new RaycastHit();
-
-        Vector3 dir = (p - transform.position).normalized;
-
-        if (Physics.Raycast(transform.position, p * range, out hit, mask))
-        {
-            p = hit.point;
-        }
-
-        return p;
     }
 
     private void OnDrawGizmos()
     {
+        if (!displayGizmos) { return; }
+
         Gizmos.color = Color.white;
 
         //Test all vertices
