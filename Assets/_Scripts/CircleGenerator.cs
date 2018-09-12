@@ -3,6 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+// Ideas:
+// - seperate mesh into multiple meshes based on matching normals. Create midle vertex for each.
+// - snap every vertex to very close edges
+
 public class CircleGenerator : MonoBehaviour
 {
     [SerializeField]
@@ -14,7 +18,7 @@ public class CircleGenerator : MonoBehaviour
     [SerializeField]
     bool displayRays = true;
 
-    int rayDensity = 500;
+    int rayDensity = 30;
     float size = 0.3f;
     float range = 15f;
 
@@ -83,7 +87,7 @@ public class CircleGenerator : MonoBehaviour
         {
             Vector3 localDir = transform.TransformDirection(dir[i]);
             if (Physics.Raycast(transform.position, localDir * range, out hits[i], mask) 
-                && Vector3.Dot(transform.forward, -hits[i].normal) > 0.4f) 
+               /* && Vector3.Dot(transform.forward, -hits[i].normal) > 0.4f*/) 
                 //second condition avoids creating a mesh on walls which are nearly perpendicular to light direction
             {
                 if (displayRays)
@@ -179,14 +183,6 @@ public class CircleGenerator : MonoBehaviour
 
     private Vector3 GetBoundingPosition(RaycastHit hit)
     {
-        //InverseTransformPoint() should be used here instead of InverseTransformDirection.
-        //-> the latter interprets the Point as a direction and only rotates it.
-        //-> the latter works on the X Axis as long as the cube hit is not rotated or rotated exaxctly 180 degrees.
-        //-> The first however behaves ver unexpectedly. might have to do with it taking the target's scale in consideration.
-
-        //If I make the snapping work for one dimension at a time, I can use the hit.normal to determine which one should be used.
-
-
         Vector3 o = hit.point;
 
         Vector3 halfExtends = hit.collider.bounds.extents;
@@ -213,56 +209,63 @@ public class CircleGenerator : MonoBehaviour
         //float rightDist2 = halfExtends.x - scaledPoint.x;
         //float leftDist2 = Mathf.Abs(-halfExtends.x - scaledPoint.x);
 
-        float rightDist = 0.5f - localPoint.x;
-        float leftDist = Mathf.Abs(-0.5f - localPoint.x);
-        float xRadius = avgRadius / halfExtends.x / 2f;
+        Vector3 posDistance = new Vector3(
+            0.5f - localPoint.x,
+            0.5f - localPoint.y,
+            0.5f - localPoint.z
+            );
 
-        if (rightDist < xRadius && rightDist < leftDist)
+        Vector3 negDistance = new Vector3(
+            Mathf.Abs(-0.5f - localPoint.x),
+            Mathf.Abs(-0.5f - localPoint.y),
+            Mathf.Abs(-0.5f - localPoint.z)
+            );
+
+        Vector3 scaledRadius = new Vector3(
+            avgRadius / halfExtends.x,
+            avgRadius / halfExtends.y,
+            avgRadius / halfExtends.z
+            );
+        scaledRadius /= 2f;
+
+        if (posDistance.x < scaledRadius.x && posDistance.x < negDistance.x)
         {
             localPoint.x = 0.5f;
             o = hit.collider.transform.TransformPoint(localPoint);
         }
-        else if (leftDist < xRadius)
+        else if (negDistance.x < scaledRadius.x)
         {
             localPoint.x = -0.5f;
             o = hit.collider.transform.TransformPoint(localPoint);
         }
 
-        float frontDist = halfExtends.z - localPoint.z;
-        float backDist = Mathf.Abs(-halfExtends.z - localPoint.z);
+        if (posDistance.y < scaledRadius.y && posDistance.y < negDistance.y)
+        {
+            localPoint.y = 0.5f;
+            o = hit.collider.transform.TransformPoint(localPoint);
+        }
+        else if (negDistance.y < scaledRadius.y)
+        {
+            localPoint.y = -0.5f;
+            o = hit.collider.transform.TransformPoint(localPoint);
+        }
 
+        if (posDistance.z < scaledRadius.z && posDistance.z < negDistance.z)
+        {
+            localPoint.z = 0.5f;
+            o = hit.collider.transform.TransformPoint(localPoint);
+        }
+        else if (negDistance.z < scaledRadius.z)
+        {
+            localPoint.z = -0.5f;
+            o = hit.collider.transform.TransformPoint(localPoint);
+        }
 
+        Vector3 dir = (o - transform.position) * 1.01f;
+        if(Physics.Raycast(transform.position, dir, out hit, mask))
+        {
 
-        // Code for other two dimensions.
-
-        //if (frontDist < avgRadius && frontDist < backDist)
-        //{
-        //    localPoint.z = halfExtends.z;
-        //    print(halfExtends);
-        //    o = hit.collider.transform.TransformPoint(localPoint);
-        //}
-        //else if (backDist < avgRadius)
-        //{
-        //    localPoint.z = -halfExtends.z;
-        //    o = hit.collider.transform.TransformPoint(localPoint);
-        //}
-
-
-        //float topDist = halfExtends.y - localPoint.y;
-        //float bottomDist = Mathf.Abs(-halfExtends.y - localPoint.y);
-
-        //if (Input.GetKeyDown(KeyCode.D)) { Debug.Log("positiveDist = " + topDist + "; negativeDist = " + bottomDist); }
-
-        //if (topDist < avgRadius)
-        //{
-        //    localPoint.y = halfExtends.y;
-        //    o = hit.collider.transform.TransformDirection(localPoint);
-        //}
-        //else if (bottomDist < avgRadius)
-        //{
-        //    localPoint.y = -halfExtends.y;
-        //    o = hit.collider.transform.TransformDirection(localPoint);
-        //}
+        }
 
         return o;
     }
