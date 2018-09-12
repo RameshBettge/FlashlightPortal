@@ -23,8 +23,8 @@ public class CircleGenerator : MonoBehaviour
 
     Vector3[] dir;
 
-    RaycastHit[] hits;
     bool[] hasHit;
+    RaycastHit[] hits;
 
     int currentHits;
 
@@ -147,10 +147,8 @@ public class CircleGenerator : MonoBehaviour
         }
         circle.position = middlePos;
 
-        if (!cornerHit[(int)Corners.TopLeft])
-        {
-            vertices[0] = GetTopLeft();
-        }
+        //Set the middle Vertex to the edge of surface's bounding box.
+        //vertices[0] = GetBoundingPosition(midHit, middlePos);
 
         //Create triangles
         int triIndex = 0;
@@ -198,10 +196,10 @@ public class CircleGenerator : MonoBehaviour
         Vector3 pos = Vector3.zero;
         RaycastHit hit = new RaycastHit();
 
-        //Old Approach
         if (Physics.Raycast(transform.position, transform.forward * range, out hit, mask))
         {
-            pos = hit.point;
+            //pos = hit.point;
+            pos = GetBoundingPosition(hit);
 
             if (displayRays)
             {
@@ -216,40 +214,96 @@ public class CircleGenerator : MonoBehaviour
             }
             pos /= vertices.Length - 1;
         }
+
         return pos;
+    }
+
+    private Vector3 GetBoundingPosition(RaycastHit hit)
+    {
+        //InverseTransformPoint() should be used here instead of InverseTransformDirection.
+        //-> the latter interprets the Point as a direction and only rotates it.
+        //-> the latter works on the X Axis as long as the cube hit is not rotated or rotated exaxctly 180 degrees.
+        //-> The first however behaves ver unexpectedly. might have to do with it taking the target's scale in consideration.
+
+        //If I make the snapping work for one dimension at a time, I can use the hit.normal to determine which one should be used.
 
 
-        ////Experimental Approach
-        //int maxTries = 50;
-        //float increment = 0.1f;
+        Vector3 o = hit.point;
 
-        //int dir = -1; //it always goes to the left now
+        Vector3 halfExtends = hit.collider.bounds.extents;
+        float avgRadius = 0f;
+
+        //Vector3 localPoint = hit.collider.transform.InverseTransformPoint(hit.point);
+        Vector3 localPoint = hit.collider.transform.InverseTransformDirection(hit.point);
+        //Vector3 localPoint = hit.point - hit.collider.transform.position;
+
+        for (int i = 1; i < vertices.Length; i++)
+        {
+            avgRadius += (vertices[i] - hit.point).sqrMagnitude;
+        }
+        avgRadius /= vertices.Length - 1;
+        avgRadius = Mathf.Sqrt(avgRadius);
+
+        //// WARNING: ONLY FOR DEBUGGING:
+        //avgRadius = 100f;
+        //// END WARNING
+
+        
+
+        float rightDist = halfExtends.x - localPoint.x;
+        float leftDist = Mathf.Abs(-halfExtends.x - localPoint.x);
+
+        if (rightDist < avgRadius && rightDist < leftDist)
+        {
+            localPoint.x = halfExtends.x;
+            //o = hit.collider.transform.TransformPoint(localPoint);
+            o = hit.collider.transform.TransformDirection(localPoint);
+            //o = hit.point + hit.collider.transform.position;
+        }
+        else if (leftDist < avgRadius)
+        {
+            localPoint.x = -halfExtends.x;
+            o = hit.collider.transform.TransformDirection(localPoint);
+            //o = hit.point + hit.collider.transform.position;
+        }
+
+        float frontDist = halfExtends.z - localPoint.z;
+        float backDist = Mathf.Abs(-halfExtends.z - localPoint.z);
 
 
-        //for (int i = 0; i < maxTries; i++)
+
+        // Code for other two dimensions.
+
+        //if (frontDist < avgRadius && frontDist < backDist)
         //{
-        //    Vector3 rayDir = (transform.forward * range) + new Vector3(increment * dir * i, 0f, 0f);
-        //    if (!Physics.Raycast(transform.position, rayDir, out hit, mask))
-        //    {
-        //        return hit.point;
-        //    }
+        //    localPoint.z = halfExtends.z;
+        //    print(halfExtends);
+        //    o = hit.collider.transform.TransformPoint(localPoint);
+        //}
+        //else if (backDist < avgRadius)
+        //{
+        //    localPoint.z = -halfExtends.z;
+        //    o = hit.collider.transform.TransformPoint(localPoint);
         //}
 
-        //if(hit.point == null)
-        //{
-        //    Debug.LogWarning("No Ray hit.");
 
-        //    Vector3 midPos = Vector3.zero;
-        //    for (int i = 1; i < vertices.Length; i++)
-        //    {
-        //        midPos += vertices[i];
-        //    }
-        //    midPos /= vertices.Length - 1;
-        //    return midPos;
+        //float topDist = halfExtends.y - localPoint.y;
+        //float bottomDist = Mathf.Abs(-halfExtends.y - localPoint.y);
+
+        //if (Input.GetKeyDown(KeyCode.D)) { Debug.Log("positiveDist = " + topDist + "; negativeDist = " + bottomDist); }
+
+        //if (topDist < avgRadius)
+        //{
+        //    localPoint.y = halfExtends.y;
+        //    o = hit.collider.transform.TransformDirection(localPoint);
+        //}
+        //else if (bottomDist < avgRadius)
+        //{
+        //    localPoint.y = -halfExtends.y;
+        //    o = hit.collider.transform.TransformDirection(localPoint);
         //}
 
-
-        //return hit.point;
+        return o;
     }
 
     private void OnDrawGizmos()
