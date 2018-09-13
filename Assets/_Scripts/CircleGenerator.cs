@@ -18,9 +18,10 @@ public class CircleGenerator : MonoBehaviour
     [SerializeField]
     bool displayRays = true;
 
-    int rayDensity = 30;
+    int rayDensity = 150;
     float size = 0.3f;
     float range = 15f;
+    float snapRadius = 0.5f; //Creates an interesting effect if set to 1 or higher
 
     float increment;
     float radian;
@@ -115,7 +116,11 @@ public class CircleGenerator : MonoBehaviour
         {
             if (hasHit[i])
             {
-                lMesh.vertices[vIndex] = hits[i].point + hits[i].normal * 0.01f;
+                //lMesh.vertices[vIndex] = hits[i].point + hits[i].normal * 0.01f;
+
+                //Snaps the vertices if they are very close to an edge. Then adds the hit.normal to avoid Z-Fighting
+                lMesh.vertices[vIndex] = SnapToEdge(hits[i], lMesh, snapRadius) + (hits[i].normal * 0.04f);
+
                 vIndex++;
             }
         }
@@ -133,7 +138,7 @@ public class CircleGenerator : MonoBehaviour
         circle.position = lMesh.middlePos;
 
 
-        filter.mesh = lMesh.GenerateMesh(); 
+        filter.mesh = lMesh.GenerateMesh();
     }
 
     Vector3 GetMiddlePosition(LightMesh lM)
@@ -158,26 +163,84 @@ public class CircleGenerator : MonoBehaviour
                 pos += lM.vertices[i];
             }
             pos /= lM.vertices.Length - 1;
+
+            if (Physics.Raycast(transform.position, pos - transform.position, out hit, mask))
+            {
+                pos = GetBoundingPosition(hit, lM, true);
+            }
         }
 
         return pos;
     }
 
-    private Vector3 GetBoundingPosition(RaycastHit hit, LightMesh lM)
+    private Vector3 GetBoundingPosition(RaycastHit hit, LightMesh lM, bool setRadius = false)
+    {
+        float avgRadius = 0f;
+
+        if (setRadius)
+        {
+            avgRadius = 5f;
+        }
+        else
+        {
+            for (int i = 1; i < lM.vertices.Length; i++)
+            {
+                avgRadius += (lM.vertices[i] - hit.point).sqrMagnitude;
+            }
+            avgRadius /= lM.vertices.Length - 1;
+            avgRadius = Mathf.Sqrt(avgRadius);
+        }
+
+        //Increases the radius. Can lead to unintended snapping but prevents the circle from missing pieces.
+        avgRadius *= 1.05f;
+
+        Vector3 o = SnapToEdge(hit, lM, avgRadius);
+
+        //Clamp the middle pos on each axis.
+        lM.SetMinMax();
+        if (o.x > lM.maxPos.x)
+        {
+            o.x = lM.maxPos.x;
+        }
+        else if (o.x < lM.minPos.x)
+        {
+            o.x = lM.minPos.x;
+        }
+
+        if (o.y > lM.maxPos.y)
+        {
+            o.y = lM.maxPos.y;
+        }
+        else if (o.y < lM.minPos.y)
+        {
+            o.y = lM.minPos.y;
+        }
+
+        if (o.z > lM.maxPos.z)
+        {
+            o.z = lM.maxPos.z;
+        }
+        else if (o.z < lM.minPos.z)
+        {
+            o.z = lM.minPos.z;
+        }
+
+        // Cast a ray to hit edge and find normal
+        //Vector3 dir = (o - transform.position) * 1.01f;
+        //if (Physics.Raycast(transform.position, dir, out hit, mask))
+        //{
+        //o += hit.normal * 0.01f;
+        //}
+
+        return o;
+    }
+
+    private Vector3 SnapToEdge(RaycastHit hit, LightMesh lM, float radius)
     {
         Vector3 o = hit.point;
         Vector3 otherPos = hit.collider.transform.position;
 
         Vector3 halfExtends = hit.collider.bounds.extents;
-        float avgRadius = 0f;
-
-
-        for (int i = 1; i < lM.vertices.Length; i++)
-        {
-            avgRadius += (lM.vertices[i] - hit.point).sqrMagnitude;
-        }
-        avgRadius /= lM.vertices.Length - 1;
-        avgRadius = Mathf.Sqrt(avgRadius);
 
         //Scaling the avgRadius to avoid snapping to points outside the nearer vertices
         //avgRadius *= 0.9f;
@@ -196,30 +259,30 @@ public class CircleGenerator : MonoBehaviour
           );
 
 
-        if (posDistance.x < avgRadius && posDistance.x < negDistance.x)
+        if (posDistance.x < radius && posDistance.x < negDistance.x)
         {
             o.x = otherPos.x + halfExtends.x;
         }
-        else if (negDistance.x < avgRadius)
+        else if (negDistance.x < radius)
         {
             o.x = otherPos.x - halfExtends.x;
         }
 
-        if (posDistance.y < avgRadius && posDistance.y < negDistance.y)
+        if (posDistance.y < radius && posDistance.y < negDistance.y)
         {
             o.y = otherPos.y + halfExtends.y;
         }
-        else if (negDistance.y < avgRadius)
+        else if (negDistance.y < radius)
         {
             o.y = otherPos.y - halfExtends.y;
         }
 
-        if (posDistance.z < avgRadius && posDistance.z < negDistance.z)
+        if (posDistance.z < radius && posDistance.z < negDistance.z)
         {
             o.z = otherPos.z + halfExtends.z;
 
         }
-        else if (negDistance.z < avgRadius)
+        else if (negDistance.z < radius)
         {
             o.z = otherPos.z - halfExtends.z;
         }
@@ -243,7 +306,7 @@ public class CircleGenerator : MonoBehaviour
         //Test all vertices
         for (int i = 0; i < lMesh.vertices.Length; i++)
         {
-            Gizmos.DrawSphere(lMesh.vertices[i]+ circle.position, 0.2f);
+            Gizmos.DrawSphere(lMesh.vertices[i] + circle.position, 0.2f);
         }
 
 

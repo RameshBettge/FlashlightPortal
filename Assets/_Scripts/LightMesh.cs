@@ -33,7 +33,7 @@ public struct LightMesh
         return mesh;
     }
 
-    public void GetFurthest()
+    public void SetMinMax()
     {
         maxPos = Vector3.zero;
         minPos = Vector3.zero;
