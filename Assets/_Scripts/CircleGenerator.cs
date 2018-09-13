@@ -36,11 +36,9 @@ public class CircleGenerator : MonoBehaviour
     MeshFilter filter;
     Mesh mesh;
 
-    public Vector3[] vertices;
+    LightMesh lMesh = new LightMesh();
 
     public int testIndex;
-
-    Vector3 middlePos;
 
     void Start()
     {
@@ -108,7 +106,8 @@ public class CircleGenerator : MonoBehaviour
 
     private void CreateMesh()
     {
-        vertices = new Vector3[currentHits + 1];
+        lMesh.vertices = new Vector3[currentHits + 1];
+        lMesh.vertices = new Vector3[currentHits + 1];
         int vIndex = 1;
 
         //Get all vertices except [0] which is for the middle vertex
@@ -116,45 +115,28 @@ public class CircleGenerator : MonoBehaviour
         {
             if (hasHit[i])
             {
-                vertices[vIndex] = hits[i].point + hits[i].normal * 0.01f;
+                lMesh.vertices[vIndex] = hits[i].point + hits[i].normal * 0.01f;
                 vIndex++;
             }
         }
 
         //Get middle Position
-        middlePos = GetMiddlePosition();
-        vertices[0] = middlePos;
+        lMesh.middlePos = GetMiddlePosition(lMesh);
+        lMesh.vertices[0] = lMesh.middlePos;
 
         //normalize the positions of the vertices. Middle = Vector3.zero. Then Move the mesh to the object hit
-        for (int i = 0; i < vertices.Length; i++)
+        for (int i = 0; i < lMesh.vertices.Length; i++)
         {
-            vertices[i] -= middlePos;
+            lMesh.vertices[i] -= lMesh.middlePos;
         }
-        circle.position = middlePos;
+
+        circle.position = lMesh.middlePos;
 
 
-        //Create triangles
-        int triIndex = 0;
-        int[] tris = new int[(vertices.Length - 1) * 3];
-        for (int i = 0; i < vertices.Length - 2; i++, triIndex += 3)
-        {
-            tris[triIndex] = i + 2;
-            tris[triIndex + 1] = 0;
-            tris[triIndex + 2] = i + 1;
-        }
-        //create the last triangle
-        tris[triIndex] = 1;
-        tris[triIndex + 1] = 0;
-        tris[triIndex + 2] = vertices.Length - 1;
-
-        mesh = new Mesh();
-        mesh.vertices = vertices;
-        mesh.triangles = tris;
-
-        filter.mesh = mesh;
+        filter.mesh = lMesh.GenerateMesh(); 
     }
 
-    Vector3 GetMiddlePosition()
+    Vector3 GetMiddlePosition(LightMesh lM)
     {
         Vector3 pos = Vector3.zero;
         RaycastHit hit = new RaycastHit();
@@ -162,7 +144,7 @@ public class CircleGenerator : MonoBehaviour
         if (Physics.Raycast(transform.position, transform.forward * range, out hit, mask))
         {
             //pos = hit.point;
-            pos = GetBoundingPosition(hit);
+            pos = GetBoundingPosition(hit, lM);
 
             if (displayRays)
             {
@@ -171,17 +153,17 @@ public class CircleGenerator : MonoBehaviour
         }
         else
         {
-            for (int i = 1; i < vertices.Length; i++)
+            for (int i = 1; i < lM.vertices.Length; i++)
             {
-                pos += vertices[i];
+                pos += lM.vertices[i];
             }
-            pos /= vertices.Length - 1;
+            pos /= lM.vertices.Length - 1;
         }
 
         return pos;
     }
 
-    private Vector3 GetBoundingPosition(RaycastHit hit)
+    private Vector3 GetBoundingPosition(RaycastHit hit, LightMesh lM)
     {
         Vector3 o = hit.point;
         Vector3 otherPos = hit.collider.transform.position;
@@ -190,15 +172,15 @@ public class CircleGenerator : MonoBehaviour
         float avgRadius = 0f;
 
 
-        for (int i = 1; i < vertices.Length; i++)
+        for (int i = 1; i < lM.vertices.Length; i++)
         {
-            avgRadius += (vertices[i] - hit.point).sqrMagnitude;
+            avgRadius += (lM.vertices[i] - hit.point).sqrMagnitude;
         }
-        avgRadius /= vertices.Length - 1;
+        avgRadius /= lM.vertices.Length - 1;
         avgRadius = Mathf.Sqrt(avgRadius);
 
         //Scaling the avgRadius to avoid snapping to points outside the nearer vertices
-        avgRadius *= 0.9f;
+        //avgRadius *= 0.9f;
 
         //// END WARNING
         Vector3 posDistance = new Vector3(
@@ -213,12 +195,6 @@ public class CircleGenerator : MonoBehaviour
           Mathf.Abs(otherPos.z - halfExtends.z - o.z)
           );
 
-        //Vector3 scaledRadius = new Vector3(
-        //    avgRadius / halfExtends.x,
-        //    avgRadius / halfExtends.y,
-        //    avgRadius / halfExtends.z
-        //    );
-        //scaledRadius /= 2f;
 
         if (posDistance.x < avgRadius && posDistance.x < negDistance.x)
         {
@@ -248,10 +224,11 @@ public class CircleGenerator : MonoBehaviour
             o.z = otherPos.z - halfExtends.z;
         }
 
+        // Cast a ray to hit edge and find normal
         //Vector3 dir = (o - transform.position) * 1.01f;
         //if (Physics.Raycast(transform.position, dir, out hit, mask))
         //{
-
+        //o += hit.normal * 0.01f;
         //}
 
         return o;
@@ -264,20 +241,17 @@ public class CircleGenerator : MonoBehaviour
         Gizmos.color = Color.white;
 
         //Test all vertices
-        for (int i = 0; i < vertices.Length; i++)
+        for (int i = 0; i < lMesh.vertices.Length; i++)
         {
-            Gizmos.DrawSphere(vertices[i] + middlePos, 0.2f);
+            Gizmos.DrawSphere(lMesh.vertices[i]+ circle.position, 0.2f);
         }
 
 
         // Test Selected vertex
         Gizmos.color = Color.magenta;
-        if (vertices != null && testIndex < vertices.Length)
+        if (lMesh.vertices != null && testIndex < lMesh.vertices.Length)
         {
-            Gizmos.DrawSphere(vertices[testIndex] + middlePos, 0.3f);
+            Gizmos.DrawSphere(lMesh.vertices[testIndex] + circle.position, 0.3f);
         }
-
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawSphere(middlePos, 0.3f);
     }
 }
