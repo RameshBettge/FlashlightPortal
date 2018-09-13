@@ -33,22 +33,32 @@ public class CircleGenerator : MonoBehaviour
 
     int currentHits;
 
-    Transform circle;
-    MeshFilter filter;
-    Mesh mesh;
+    [SerializeField]
+    GameObject circlePrefab;
 
-    LightMesh lMesh = new LightMesh();
-
+    //LightMesh lMesh = new LightMesh();
+    List<LightMesh> lMeshes = new List<LightMesh>();
     public int testIndex;
+
+    Stack<RaycastHit> right = new Stack<RaycastHit>();
+    Stack<RaycastHit> left = new Stack<RaycastHit>();
+    Stack<RaycastHit> up = new Stack<RaycastHit>();
+    Stack<RaycastHit> down = new Stack<RaycastHit>();
+    Stack<RaycastHit> front = new Stack<RaycastHit>();
+    Stack<RaycastHit> back = new Stack<RaycastHit>();
+
+    Dictionary<int, Stack<RaycastHit>> rayDict = new Dictionary<int, Stack<RaycastHit>>();
+
+    List<GameObject> circleObjects = new List<GameObject>();
 
     void Start()
     {
         //Prepare Circle
-        circle = transform.GetChild(0);
-        filter = circle.GetComponent<MeshFilter>();
-        mesh = filter.mesh = new Mesh();
-        circle.parent = null;
-        circle.rotation = Quaternion.identity;
+        //circle = transform.GetChild(0);
+        //filter = circle.GetComponent<MeshFilter>();
+        //mesh = filter.mesh = new Mesh();
+        //circle.parent = null;
+        //circle.rotation = Quaternion.identity;
 
         //Set arrays
         hits = new RaycastHit[rayDensity];
@@ -62,6 +72,14 @@ public class CircleGenerator : MonoBehaviour
         {
             dir[i] = new Vector3(Mathf.Sin(radian * i) * size, Mathf.Cos(radian * i) * size, 1f);
         }
+
+        //Fill Dict
+        rayDict.Add(0, right);
+        rayDict.Add(1, left);
+        rayDict.Add(2, up);
+        rayDict.Add(3, down);
+        rayDict.Add(4, front);
+        rayDict.Add(5, back);
     }
 
     void Update()
@@ -70,11 +88,12 @@ public class CircleGenerator : MonoBehaviour
 
         if (currentHits > 0)
         {
-            CreateMesh();
+            //CreateMesh();
+            SeperateMeshes();
         }
         else
         {
-            filter.mesh = null;
+            //filter.mesh = null;
         }
     }
 
@@ -105,25 +124,109 @@ public class CircleGenerator : MonoBehaviour
         }
     }
 
-    private void CreateMesh()
+    void SeperateMeshes()
     {
-        lMesh.vertices = new Vector3[currentHits + 1];
-        lMesh.vertices = new Vector3[currentHits + 1];
-        int vIndex = 1;
+        foreach(GameObject c in circleObjects)
+        {
+            Destroy(c);
+        }
 
-        //Get all vertices except [0] which is for the middle vertex
+        //Note: Deleting the references and creating new instances isn't optimal.
+        lMeshes.Clear();
+
+        for (int i = 0; i < 6; i++)
+        {
+                rayDict[i].Clear();
+        }
+
+        float m = 0.9f;
         for (int i = 0; i < rayDensity; i++)
         {
             if (hasHit[i])
             {
-                //lMesh.vertices[vIndex] = hits[i].point + hits[i].normal * 0.01f;
-
-                //Snaps the vertices if they are very close to an edge. Then adds the hit.normal to avoid Z-Fighting
-                lMesh.vertices[vIndex] = SnapToEdge(hits[i], lMesh, snapRadius) + (hits[i].normal * 0.04f);
-
-                vIndex++;
+                Vector3 d = hits[i].normal;
+                RaycastHit h = hits[i];
+                if(d.x > m)
+                {
+                    right.Push(h);
+                }
+                else if(d.x < -m)
+                {
+                    left.Push(h);
+                }
+                else if(d.y > m)
+                {
+                    up.Push(h);
+                }
+                else if(d.y < -m)
+                {
+                    down.Push(h);
+                }
+                else if(d.z > m)
+                {
+                    front.Push(h);
+                }
+                else if(d.z < -m)
+                {
+                    back.Push(h);
+                }
+                else
+                {
+                    print("nothing correct");
+                }
             }
         }
+
+        lMeshes.Clear();
+
+        for (int i = 0; i < 6; i++)
+        {
+            if (rayDict[i].Count > 0)
+            {
+                print(i + ": " + rayDict[i].Count);
+                CreateMesh(rayDict[i]);
+            }
+        }
+    }
+
+    private void CreateMesh(Stack<RaycastHit> hitStack)
+    {
+        //lMesh.vertices = new Vector3[currentHits + 1];        
+
+        Transform circle = Instantiate(circlePrefab).transform;
+        circleObjects.Add(circle.gameObject);
+
+        LightMesh lMesh = new LightMesh();
+        lMeshes.Add(lMesh);
+
+        lMesh.vertices = new Vector3[hitStack.Count + 1];
+        lMesh.hits = new RaycastHit[hitStack.Count + 1];
+
+        int vIndex = 1;
+
+        for (int i = lMesh.vertices.Length - 1; i > 0; i--)
+        {
+            //print(i + " " + lMesh.vertices.Length);
+            lMesh.hits[i] = hitStack.Pop();
+
+            lMesh.vertices[i] = lMesh.hits[i].point;
+            //lMesh.vertices[i] = SnapToEdge(hits[i], lMesh, snapRadius) + (hits[i].normal * 0.04f);
+
+        }
+
+        ////Get all vertices except [0] which is for the middle vertex
+        //for (int i = 0; i < rayDensity; i++)
+        //{
+        //    if (hasHit[i])
+        //    {
+        //        //lMesh.vertices[vIndex] = hits[i].point + hits[i].normal * 0.01f;
+
+        //        //Snaps the vertices if they are very close to an edge. Then adds the hit.normal to avoid Z-Fighting
+        //        lMesh.vertices[vIndex] = SnapToEdge(hits[i], lMesh, snapRadius) + (hits[i].normal * 0.04f);
+
+        //        vIndex++;
+        //    }
+        //}
 
         //Get middle Position
         lMesh.middlePos = GetMiddlePosition(lMesh);
@@ -137,8 +240,7 @@ public class CircleGenerator : MonoBehaviour
 
         circle.position = lMesh.middlePos;
 
-
-        filter.mesh = lMesh.GenerateMesh();
+        circle.GetComponent<MeshFilter>().mesh = lMesh.GenerateMesh();
     }
 
     Vector3 GetMiddlePosition(LightMesh lM)
@@ -299,22 +401,26 @@ public class CircleGenerator : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        if (!displayGizmos) { return; }
+        //if (!displayGizmos) { return; }
 
-        Gizmos.color = Color.white;
+        //foreach(LightMesh lMesh in lMeshes)
+        //{
+        //    Gizmos.color = Color.white;
 
-        //Test all vertices
-        for (int i = 0; i < lMesh.vertices.Length; i++)
-        {
-            Gizmos.DrawSphere(lMesh.vertices[i] + circle.position, 0.2f);
-        }
+        //    //Test all vertices
+        //    for (int i = 0; i < lMesh.vertices.Length; i++)
+        //    {
+        //        if(lMesh.vertices[i] != null)
+        //        Gizmos.DrawSphere(lMesh.vertices[i] + circle.position, 0.2f);
+        //    }
 
 
-        // Test Selected vertex
-        Gizmos.color = Color.magenta;
-        if (lMesh.vertices != null && testIndex < lMesh.vertices.Length)
-        {
-            Gizmos.DrawSphere(lMesh.vertices[testIndex] + circle.position, 0.3f);
-        }
+        //    // Test Selected vertex
+        //    Gizmos.color = Color.magenta;
+        //    if (lMesh.vertices != null && testIndex < lMesh.vertices.Length)
+        //    {
+        //        Gizmos.DrawSphere(lMesh.vertices[testIndex] + circle.position, 0.3f);
+        //    }
+        //}
     }
 }

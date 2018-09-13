@@ -4,6 +4,7 @@ public struct LightMesh
 {
     public Vector3 middlePos;
 
+    public RaycastHit[] hits;
     public Vector3[] vertices;
     public int[] tris;
 
