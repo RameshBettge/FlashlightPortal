@@ -18,10 +18,11 @@ public class CircleGenerator : MonoBehaviour
     [SerializeField]
     bool displayRays = true;
 
-    int rayDensity = 150;
+    int rayDensity = 500;
     float size = 0.3f;
     float range = 15f;
-    float snapRadius = 0.5f; //Creates an interesting effect if set to 1 or higher
+    float snapRadius = 0.1f; //Creates an interesting effect if set to 1 or higher
+    float minDot = 0.01f; //How much the light direction and the -hit.normal have to allign.
 
     float increment;
     float radian;
@@ -36,13 +37,18 @@ public class CircleGenerator : MonoBehaviour
     [SerializeField]
     GameObject circlePrefab;
 
-    //LightMesh lMesh = new LightMesh();
     List<LightMesh> lMeshes = new List<LightMesh>();
     public int testIndex;
 
+    // Dictionary array is used to seperate the Raycasthits. The Dictionary seperates by GameObject hit
+    // and the array seperates by hit.normal
     Dictionary<GameObject, Stack<RaycastHit>>[] rayDicts = new Dictionary<GameObject, Stack<RaycastHit>>[6];
 
+    //Could be used to avoid garbage collection by reusing objects. 
+    //Creating a stack creating two stacks for inactive and active circles may be the way to go.
     List<GameObject> circleObjects = new List<GameObject>();
+
+
 
     void Start()
     {
@@ -72,12 +78,7 @@ public class CircleGenerator : MonoBehaviour
 
         if (currentHits > 0)
         {
-            //CreateMesh();
             SeperateMeshes();
-        }
-        else
-        {
-            //filter.mesh = null;
         }
     }
 
@@ -89,7 +90,7 @@ public class CircleGenerator : MonoBehaviour
         {
             Vector3 localDir = transform.TransformDirection(dir[i]);
             if (Physics.Raycast(transform.position, localDir * range, out hits[i], mask)
-               /* && Vector3.Dot(transform.forward, -hits[i].normal) > 0.4f*/)
+                && Vector3.Dot(hits[i].point - transform.position, -hits[i].normal) > minDot)
             //second condition avoids creating a mesh on walls which are nearly perpendicular to light direction
             {
                 if (displayRays)
@@ -115,15 +116,11 @@ public class CircleGenerator : MonoBehaviour
             Destroy(c);
         }
 
-        //Note: Deleting the references and creating new instances isn't optimal.
         lMeshes.Clear();
 
         for (int i = 0; i < 6; i++)
         {
                 rayDicts[i].Clear();
-            for (int j = 0; j < rayDicts[i].Count; j++)
-            {
-            }
         }
 
         float m = 0.9f;
@@ -165,6 +162,7 @@ public class CircleGenerator : MonoBehaviour
             }
         }
 
+        circleObjects.Clear();
         lMeshes.Clear();
 
         for (int i = 0; i < 6; i++)
@@ -173,11 +171,6 @@ public class CircleGenerator : MonoBehaviour
             {
                 CreateMesh(pair.Value);
             }
-            //if (rayDict[i].Count > 0)
-            //{
-            //    print(i + ": " + rayDict[i].Count);
-            //    CreateMesh(rayDict[i]);
-            //}
         }
     }
 
@@ -194,8 +187,6 @@ public class CircleGenerator : MonoBehaviour
 
     private void CreateMesh(Stack<RaycastHit> hitStack)
     {
-        //lMesh.vertices = new Vector3[currentHits + 1];        
-
         Transform circle = Instantiate(circlePrefab).transform;
         circleObjects.Add(circle.gameObject);
 
@@ -203,33 +194,17 @@ public class CircleGenerator : MonoBehaviour
         lMeshes.Add(lMesh);
 
         lMesh.vertices = new Vector3[hitStack.Count + 1];
-        lMesh.hits = new RaycastHit[hitStack.Count + 1];
+        lMesh.hits = new RaycastHit[lMesh.vertices.Length - 1];
 
         int vIndex = 1;
 
         for (int i = lMesh.vertices.Length - 1; i > 0; i--)
         {
-            //print(i + " " + lMesh.vertices.Length);
-            lMesh.hits[i] = hitStack.Pop();
+            int j = i - 1;
+            lMesh.hits[j] = hitStack.Pop();
 
-            lMesh.vertices[i] = lMesh.hits[i].point;
-            //lMesh.vertices[i] = SnapToEdge(hits[i], lMesh, snapRadius) + (hits[i].normal * 0.04f);
-
+            lMesh.vertices[i] = SnapToEdge(lMesh.hits[j], lMesh, snapRadius)/* + (lMesh.hits[j].normal * 0.04f)*/;
         }
-
-        ////Get all vertices except [0] which is for the middle vertex
-        //for (int i = 0; i < rayDensity; i++)
-        //{
-        //    if (hasHit[i])
-        //    {
-        //        //lMesh.vertices[vIndex] = hits[i].point + hits[i].normal * 0.01f;
-
-        //        //Snaps the vertices if they are very close to an edge. Then adds the hit.normal to avoid Z-Fighting
-        //        lMesh.vertices[vIndex] = SnapToEdge(hits[i], lMesh, snapRadius) + (hits[i].normal * 0.04f);
-
-        //        vIndex++;
-        //    }
-        //}
 
         //Get middle Position
         lMesh.middlePos = GetMiddlePosition(lMesh);
@@ -238,6 +213,7 @@ public class CircleGenerator : MonoBehaviour
         //normalize the positions of the vertices. Middle = Vector3.zero. Then Move the mesh to the object hit
         for (int i = 0; i < lMesh.vertices.Length; i++)
         {
+
             lMesh.vertices[i] -= lMesh.middlePos;
         }
 
@@ -347,8 +323,6 @@ public class CircleGenerator : MonoBehaviour
 
         Vector3 halfExtends = hit.collider.bounds.extents;
 
-        //Scaling the avgRadius to avoid snapping to points outside the nearer vertices
-        //avgRadius *= 0.9f;
 
         //// END WARNING
         Vector3 posDistance = new Vector3(
@@ -391,39 +365,31 @@ public class CircleGenerator : MonoBehaviour
         {
             o.z = otherPos.z - halfExtends.z;
         }
-
-        // Cast a ray to hit edge and find normal
-        //Vector3 dir = (o - transform.position) * 1.01f;
-        //if (Physics.Raycast(transform.position, dir, out hit, mask))
-        //{
-        //o += hit.normal * 0.01f;
-        //}
-
         return o;
     }
 
     private void OnDrawGizmos()
     {
-        //if (!displayGizmos) { return; }
+        if (!displayGizmos) { return; }
 
-        //foreach(LightMesh lMesh in lMeshes)
-        //{
-        //    Gizmos.color = Color.white;
+        foreach (LightMesh lM in lMeshes)
+        {
+            Gizmos.color = Color.white;
 
-        //    //Test all vertices
-        //    for (int i = 0; i < lMesh.vertices.Length; i++)
-        //    {
-        //        if(lMesh.vertices[i] != null)
-        //        Gizmos.DrawSphere(lMesh.vertices[i] + circle.position, 0.2f);
-        //    }
+            //Test all vertices
+            //for (int i = 0; i < lM.vertices.Length; i++)
+            //{
+            //    if (lM.vertices[i] != null)
+            //        Gizmos.DrawSphere(lM.vertices[i] /*+ lM.middlePos*/, 0.2f);
+            //}
 
 
-        //    // Test Selected vertex
-        //    Gizmos.color = Color.magenta;
-        //    if (lMesh.vertices != null && testIndex < lMesh.vertices.Length)
-        //    {
-        //        Gizmos.DrawSphere(lMesh.vertices[testIndex] + circle.position, 0.3f);
-        //    }
-        //}
+            // Test Selected vertex
+            //Gizmos.color = Color.magenta;
+            //if (lM.vertices != null && testIndex < lM.vertices.Length)
+            //{
+            //    Gizmos.DrawSphere(lM.vertices[testIndex] + lM.middlePos, 5f);
+            //}
+        }
     }
 }
