@@ -40,26 +40,12 @@ public class CircleGenerator : MonoBehaviour
     List<LightMesh> lMeshes = new List<LightMesh>();
     public int testIndex;
 
-    Stack<RaycastHit> right = new Stack<RaycastHit>();
-    Stack<RaycastHit> left = new Stack<RaycastHit>();
-    Stack<RaycastHit> up = new Stack<RaycastHit>();
-    Stack<RaycastHit> down = new Stack<RaycastHit>();
-    Stack<RaycastHit> front = new Stack<RaycastHit>();
-    Stack<RaycastHit> back = new Stack<RaycastHit>();
-
-    Dictionary<int, Stack<RaycastHit>> rayDict = new Dictionary<int, Stack<RaycastHit>>();
+    Dictionary<GameObject, Stack<RaycastHit>>[] rayDicts = new Dictionary<GameObject, Stack<RaycastHit>>[6];
 
     List<GameObject> circleObjects = new List<GameObject>();
 
     void Start()
     {
-        //Prepare Circle
-        //circle = transform.GetChild(0);
-        //filter = circle.GetComponent<MeshFilter>();
-        //mesh = filter.mesh = new Mesh();
-        //circle.parent = null;
-        //circle.rotation = Quaternion.identity;
-
         //Set arrays
         hits = new RaycastHit[rayDensity];
         dir = new Vector3[rayDensity];
@@ -73,13 +59,11 @@ public class CircleGenerator : MonoBehaviour
             dir[i] = new Vector3(Mathf.Sin(radian * i) * size, Mathf.Cos(radian * i) * size, 1f);
         }
 
-        //Fill Dict
-        rayDict.Add(0, right);
-        rayDict.Add(1, left);
-        rayDict.Add(2, up);
-        rayDict.Add(3, down);
-        rayDict.Add(4, front);
-        rayDict.Add(5, back);
+        //Create Dicts
+        for (int i = 0; i < 6; i++)
+        {
+            rayDicts[i] = new Dictionary<GameObject, Stack<RaycastHit>>();
+        }
     }
 
     void Update()
@@ -136,7 +120,10 @@ public class CircleGenerator : MonoBehaviour
 
         for (int i = 0; i < 6; i++)
         {
-                rayDict[i].Clear();
+                rayDicts[i].Clear();
+            for (int j = 0; j < rayDicts[i].Count; j++)
+            {
+            }
         }
 
         float m = 0.9f;
@@ -148,31 +135,32 @@ public class CircleGenerator : MonoBehaviour
                 RaycastHit h = hits[i];
                 if(d.x > m)
                 {
-                    right.Push(h);
+                    SortToStack(i, 0);
                 }
                 else if(d.x < -m)
                 {
-                    left.Push(h);
+                    SortToStack(i, 0);
                 }
                 else if(d.y > m)
                 {
-                    up.Push(h);
+                    SortToStack(i, 0);
                 }
                 else if(d.y < -m)
                 {
-                    down.Push(h);
+                    SortToStack(i, 0);
                 }
                 else if(d.z > m)
                 {
-                    front.Push(h);
+                    SortToStack(i, 0);
                 }
                 else if(d.z < -m)
                 {
-                    back.Push(h);
+                    SortToStack(i, 0);
                 }
                 else
                 {
-                    print("nothing correct");
+                    Debug.LogWarning("Unable to sort rayCastHit. " +
+                        "Hit.normal is not alligned to any world axis");
                 }
             }
         }
@@ -181,12 +169,27 @@ public class CircleGenerator : MonoBehaviour
 
         for (int i = 0; i < 6; i++)
         {
-            if (rayDict[i].Count > 0)
+            foreach(KeyValuePair<GameObject, Stack<RaycastHit>> pair in rayDicts[i])
             {
-                print(i + ": " + rayDict[i].Count);
-                CreateMesh(rayDict[i]);
+                CreateMesh(pair.Value);
             }
+            //if (rayDict[i].Count > 0)
+            //{
+            //    print(i + ": " + rayDict[i].Count);
+            //    CreateMesh(rayDict[i]);
+            //}
         }
+    }
+
+    void SortToStack(int hitID,int dictID)
+    {
+        GameObject gO = hits[hitID].collider.gameObject;
+        if (!rayDicts[dictID].ContainsKey(gO))
+        {
+            rayDicts[dictID].Add(gO, new Stack<RaycastHit>());
+        }
+        
+            rayDicts[dictID][gO].Push(hits[hitID]);
     }
 
     private void CreateMesh(Stack<RaycastHit> hitStack)
