@@ -19,9 +19,9 @@ public class CircleGenerator : MonoBehaviour
     bool displayRays = true;
 
     int rayDensity = 500;
-    float size = 0.3f;
-    float range = 15f;
-    float snapRadius = 0.1f; //Creates an interesting effect if set to 1 or higher
+    float size = 0.2f;
+    float range = 150f;
+    float snapRadius = 0.5f; //Creates an interesting effect if set to 1 or higher
     float minDot = 0.01f; //How much the light direction and the -hit.normal have to allign.
 
     float increment;
@@ -111,7 +111,7 @@ public class CircleGenerator : MonoBehaviour
 
     void SeperateMeshes()
     {
-        foreach(GameObject c in circleObjects)
+        foreach (GameObject c in circleObjects)
         {
             Destroy(c);
         }
@@ -120,7 +120,7 @@ public class CircleGenerator : MonoBehaviour
 
         for (int i = 0; i < 6; i++)
         {
-                rayDicts[i].Clear();
+            rayDicts[i].Clear();
         }
 
         float m = 0.9f;
@@ -130,27 +130,27 @@ public class CircleGenerator : MonoBehaviour
             {
                 Vector3 d = hits[i].normal;
                 RaycastHit h = hits[i];
-                if(d.x > m)
+                if (d.x > m)
                 {
                     SortToStack(i, 0);
                 }
-                else if(d.x < -m)
+                else if (d.x < -m)
                 {
                     SortToStack(i, 0);
                 }
-                else if(d.y > m)
+                else if (d.y > m)
                 {
                     SortToStack(i, 0);
                 }
-                else if(d.y < -m)
+                else if (d.y < -m)
                 {
                     SortToStack(i, 0);
                 }
-                else if(d.z > m)
+                else if (d.z > m)
                 {
                     SortToStack(i, 0);
                 }
-                else if(d.z < -m)
+                else if (d.z < -m)
                 {
                     SortToStack(i, 0);
                 }
@@ -167,22 +167,22 @@ public class CircleGenerator : MonoBehaviour
 
         for (int i = 0; i < 6; i++)
         {
-            foreach(KeyValuePair<GameObject, Stack<RaycastHit>> pair in rayDicts[i])
+            foreach (KeyValuePair<GameObject, Stack<RaycastHit>> pair in rayDicts[i])
             {
                 CreateMesh(pair.Value);
             }
         }
     }
 
-    void SortToStack(int hitID,int dictID)
+    void SortToStack(int hitID, int dictID)
     {
         GameObject gO = hits[hitID].collider.gameObject;
         if (!rayDicts[dictID].ContainsKey(gO))
         {
             rayDicts[dictID].Add(gO, new Stack<RaycastHit>());
         }
-        
-            rayDicts[dictID][gO].Push(hits[hitID]);
+
+        rayDicts[dictID][gO].Push(hits[hitID]);
     }
 
     private void CreateMesh(Stack<RaycastHit> hitStack)
@@ -227,18 +227,19 @@ public class CircleGenerator : MonoBehaviour
         Vector3 pos = Vector3.zero;
         RaycastHit hit = new RaycastHit();
 
-        if (Physics.Raycast(transform.position, transform.forward * range, out hit, mask))
-        {
-            //pos = hit.point;
-            pos = GetBoundingPosition(hit, lM);
+        // Can improve the mesh's quality but can also cause bugs.
+        //if (Physics.Raycast(transform.position, transform.forward * range, out hit, mask))
+        //{
+        //    //pos = hit.point;
+        //    pos = GetBoundingPosition(hit, lM);
 
-            if (displayRays)
-            {
-                Debug.DrawRay(transform.position, transform.forward * hit.distance, Color.cyan);
-            }
-        }
-        else
-        {
+        //    if (displayRays)
+        //    {
+        //        Debug.DrawRay(transform.position, transform.forward * hit.distance, Color.cyan);
+        //    }
+        //}
+        //else
+        //{
             for (int i = 1; i < lM.vertices.Length; i++)
             {
                 pos += lM.vertices[i];
@@ -249,7 +250,7 @@ public class CircleGenerator : MonoBehaviour
             {
                 pos = GetBoundingPosition(hit, lM, true);
             }
-        }
+        //}
 
         return pos;
     }
